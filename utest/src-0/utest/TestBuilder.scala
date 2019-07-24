@@ -74,6 +74,7 @@ trait TestBuilderExtractors {
       stats.partitionMap[Statement, Apply, Statement] {
         case IsTest     (test) => Left (test)
         case IsStatement(stmt) => Right(stmt)
+        case IsImport   (stmt) => Right(stmt)
       }
 
     def unapply(tree: Tree): Option[(List[Apply], List[Statement])] = tree match {
