@@ -50,15 +50,23 @@ trait TestBuilderExtractors {
   object Test {
     def unapply(tree: Tree): Option[(String, List[Apply], List[Statement])] = tree match {
       case Apply(
-        Apply(Ident("test"),List(Literal(Constant(testName: String))))
+        TestName(testName)
       , Stats(nestedTests, setupStats) :: Nil) => Some((testName, nestedTests, setupStats))
+      case _ => None
+    }
+  }
+
+  object TestName {
+    def unapply(tree: Tree): Option[String] = tree match {
+      case Select(Apply(Select(Ident("test"),"apply"),List(Literal(Constant(name: String)))),"apply") => Some(name)
       case _ => None
     }
   }
 
   object IsTest {
     def unapply(tree: Tree): Option[Apply] = tree match {
-      case t@Apply(Apply(Ident("test"), List(Literal(Constant(_)))), _) => Some(t.asInstanceOf[Apply])
+      // case t@Apply(Apply(Ident("test"), List(Literal(Constant(_)))), _) => Some(t.asInstanceOf[Apply])
+      case t@Apply(TestName(_), _) => Some(t.asInstanceOf[Apply])
       case _ => None
     }
   }
