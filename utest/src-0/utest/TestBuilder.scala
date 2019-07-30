@@ -18,28 +18,31 @@ class TestBuilder given (val qc: QuoteContext) given Toolbox extends TestBuilder
     case Nil => (Nil, Nil)
   }
 
+  def TestCallTreeExpr(nestedBodyTrees: List[Expr[TestCallTree]], setupStats: List[Statement]): Expr[TestCallTree] = '{TestCallTree { ${(
+    if (nestedBodyTrees.nonEmpty)
+      Block(setupStats, '{Right(${nestedBodyTrees.toExprOfList})}.unseal)
+    else
+      Block(setupStats.dropRight(1), '{Left(${setupStats.takeRight(1).head.asInstanceOf[Term].seal})}.unseal)
+    ).seal.cast[Either[Any, IndexedSeq[TestCallTree]]]
+  }}}
+
+
   def processTest(test: Apply): (Expr[UTree[String]], Expr[TestCallTree]) = test match {
     case Test(name, nestedTests, setupStats) =>
       val (nestedNameTrees, nestedBodyTrees) = buildTestsTrees(nestedTests)
 
       val names: Expr[UTree[String]] = '{UTree[String](${name.toExpr}, ${nestedNameTrees.toExprOfList}: _*)}
-      val bodies: Expr[TestCallTree] = '{TestCallTree { ${(
-        if (nestedBodyTrees.nonEmpty)
-          Block(setupStats, '{Right(${nestedBodyTrees.toExprOfList})}.unseal)
-        else
-          Block(setupStats.dropRight(1), '{Left(${setupStats.takeRight(1).head.asInstanceOf[Term].seal})}.unseal)
-        ).seal.cast[Either[Any, IndexedSeq[TestCallTree]]]
-      }}}
+      val bodies: Expr[TestCallTree] = TestCallTreeExpr(nestedBodyTrees, setupStats)
 
       (names, bodies)
   }
 
   def processTests(body: Term): Expr[Tests] = body.underlyingArgument match {
-      case Stats(tests, _) =>
+      case Stats(tests, setupStats) =>
         val (nestedNameTrees, nestedBodyTrees) = buildTestsTrees(tests)
         '{Tests(UTree[String](
             "<root>", ${nestedNameTrees.toExprOfList}: _*)
-          , TestCallTree(Right(${nestedBodyTrees.toExprOfList}.toIndexedSeq)))}
+          , ${TestCallTreeExpr(nestedBodyTrees, setupStats)})}
     }
 }
 
@@ -58,6 +61,7 @@ trait TestBuilderExtractors {
 
   object TestName {
     def unapply(tree: Tree): Option[String] = tree match {
+      // '{ test($name)($body) }
       case Select(Apply(Select(Ident("test"),"apply"),List(Literal(Constant(name: String)))),"apply") => Some(name)
       case _ => None
     }
