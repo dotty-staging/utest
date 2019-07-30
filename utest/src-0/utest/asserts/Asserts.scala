@@ -15,7 +15,8 @@ import scala.collection.mutable
  * message for boolean expression assertion.
  */
 object Asserts {
-  def assertImpl(exprs: Expr[Seq[Boolean]]) given QuoteContext: Expr[Unit] = '{???}
+  def assertProxy(exprs: Expr[Seq[Boolean]]) given QuoteContext: Expr[Unit] =
+    Tracer[Boolean]('{ es => utest.asserts.Asserts.assertImpl(es: _*) }, exprs)
 }
 
 
