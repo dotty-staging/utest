@@ -11,31 +11,36 @@ import scala.tasty._
  * converting it into an [[AssertEntry]] and inserting debug loggers.
  */
 object Tracer{
-  def wrapWithLoggedValue(tree: Tree, logger: Expr[TestValue => Unit], tpe: Type) = '{
-      val tmp: $[tpe] = ${tree.seal}
-      ${logger(TestValue(
+  val wrapWithLoggedValue = given (ctx: QuoteContext) => (tree: ctx.tasty.Term, logger: Expr[TestValue => Unit], tpe: String) => {
+    import ctx.tasty._
+    '{
+      val tmp = ${TermToQuotedAPI(tree).seal}
+      $logger(TestValue(
         tree.toString,
-        tpe.show,
-        tmp)
-      )}
-      ${tmp}
+        tpe,
+        tmp
+      ))
+      tmp
+    }
   }
 
-  def apply[T](func: Expr[Seq[AssertEntry[T]] => Unit], exprs: Expr[Seq[T]]) given QuoteContext: Expr[Unit] = {
+  def apply[T](func: Expr[Seq[AssertEntry[T]] => Unit], exprs: Expr[Seq[T]]) given (ctx: QuoteContext): Expr[Unit] = {
+    import ctx.tasty._
+
     def tracingTransformer(logger: Expr[TestValue => Unit]) = new TreeMap {
       override def transformTerm(tree: Term)(implicit ctx: Context): Term = {
         tree match {
-          case i @ Ident(name) if i.symbol.pos != NoPosition
-            && i.pos != NoPosition
+          case i @ Ident(name) if i.symbol.pos.exists
+            && i.pos.exists
             // only trace identifiers coming from the same file,
             // since those are the ones people probably care about
-            && i.symbol.pos.source == i.pos.source
+            && i.symbol.pos.sourceFile == i.pos.sourceFile
             // Don't trace methods, since you cannot just print them "standalone"
             // without providing arguments
-            && !i.symbol.isMethod
+            && !IsDefDefSymbol.unapply(i.symbol).isDefined && !i.symbol.isClassConstructor
             // Don't trace identifiers which are synthesized by the compiler
             // as part of the language implementation
-            && !i.symbol.isImplementationArtifact
+            && !i.symbol.hasFlag(BRIDGE | VBRIDGE | ARTIFACT)
             // Don't trace "magic" identifiers with '$'s in them
             && !name.toString.contains('$') =>
 

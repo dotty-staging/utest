@@ -5,13 +5,8 @@ import utest.framework.StackMarker
 
 import scala.annotation.{StaticAnnotation, tailrec}
 import scala.collection.mutable
-import scala.reflect.macros.{Context, ParseException, TypecheckException}
 import scala.util.{Failure, Random, Success, Try}
 import scala.reflect.ClassTag
-import scala.reflect.internal.util.{OffsetPosition, Position}
-import scala.reflect.internal.util.OffsetPosition
-import scala.reflect.macros.{Context, TypecheckException}
-import scala.language.experimental.macros
 
 /**
  * Macro implementation that provides rich error
