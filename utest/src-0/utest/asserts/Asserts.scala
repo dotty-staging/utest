@@ -16,7 +16,7 @@ import scala.collection.mutable
  */
 object Asserts extends AssertsCommons {
   def assertProxy(exprs: Expr[Seq[Boolean]]) given QuoteContext: Expr[Unit] =
-    Tracer[Boolean]('{ es => utest.asserts.Asserts.assertImpl(es: _*) }, exprs)
+    Tracer[Boolean]('{ (esx: Seq[AssertEntry[Boolean]]) => utest.asserts.Asserts.assertImpl(esx: _*) }, exprs)
 }
 
 

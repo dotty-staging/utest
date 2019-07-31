@@ -47,25 +47,32 @@ object Tracer{
             wrapWithLoggedValue(tree, logger, tree.tpe.widen)
          
           // Don't worry about multiple chained annotations for now...
-          case Typed(_, Type.AnnotatedType(underlying, annot)) if annot.tpe == typeOf[utest.asserts.Show] =>
-            wrapWithLoggedValue(tree, logger, underlying.widen)
+          case Typed(_, tpt) =>
+            tpt.tpe match {
+              case Type.AnnotatedType(underlying, annot) if annot.tpe == typeOf[utest.asserts.Show] =>
+                wrapWithLoggedValue(tree, logger, underlying.widen)
+              case _ => super.transformTerm(tree)
+            }
   
           // Don't recurse and trace the LHS of assignments
-          case i: Assign => super.transformTerm(i.rhs)
+          case Assign(_, rhs) => super.transformTerm(rhs)
 
           case _ => super.transformTerm(tree)
         }
       }
     }
 
-    exprs match { case ExprSeq(es) =>
-      val trees: Expr[Seq[AssertEntry[T]]] = es.map(expr =>
-        '{AssertEntry(
-          ${expr.show.toExpr},
-          logger => ${tracingTransformer('logger).transformTerm(expr.unseal).seal.cast[T]})}
-      ).toExprOfSeq
+    exprs match {
+      case ExprSeq(ess) =>
+        val trees: Expr[Seq[AssertEntry[T]]] = ess.map(expr =>
+          '{AssertEntry(
+            ${expr.show.toExpr},
+            logger => ${tracingTransformer('logger).transformTerm(expr.unseal).seal.cast[T]})}
+        ).toExprOfSeq
 
-      '{$func($trees)}
+        func(trees)
+
+      case _ => throw new RuntimeException(s"Only varargs are supported. Got: $exprs")
     }
   }
 }
