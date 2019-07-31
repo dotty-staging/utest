@@ -16,8 +16,8 @@ object Tracer{
     '{
       val tmp = ${TermToQuotedAPI(tree).seal}
       $logger(TestValue(
-        ${tree.toString.toExpr},
-        ${tpe.toString.toExpr},
+        ${tree.show.toExpr},
+        ${tpe.show.toExpr},
         tmp
       ))
       tmp
