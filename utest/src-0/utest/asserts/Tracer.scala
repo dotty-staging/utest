@@ -1,7 +1,7 @@
 package utest
 package asserts
 
-import scala.quoted._
+import scala.quoted._, scala.quoted.matching._
 import delegate scala.quoted._
 import scala.tasty._
 
@@ -11,20 +11,20 @@ import scala.tasty._
  * converting it into an [[AssertEntry]] and inserting debug loggers.
  */
 object Tracer{
-  val wrapWithLoggedValue = given (ctx: QuoteContext) => (tree: ctx.tasty.Term, logger: Expr[TestValue => Unit], tpe: String) => {
+  val wrapWithLoggedValue = given (ctx: QuoteContext) => (tree: ctx.tasty.Term, logger: Expr[TestValue => Unit], tpe: ctx.tasty.Type) => {
     import ctx.tasty._
     '{
       val tmp = ${TermToQuotedAPI(tree).seal}
       $logger(TestValue(
-        tree.toString,
-        tpe,
+        ${tree.toString.toExpr},
+        ${tpe.toString.toExpr},
         tmp
       ))
       tmp
-    }
+    }.unseal
   }
 
-  def apply[T](func: Expr[Seq[AssertEntry[T]] => Unit], exprs: Expr[Seq[T]]) given (ctx: QuoteContext): Expr[Unit] = {
+  def apply[T](func: Expr[Seq[AssertEntry[T]] => Unit], exprs: Expr[Seq[T]]) given (ctx: QuoteContext, tt: Type[T]): Expr[Unit] = {
     import ctx.tasty._
 
     def tracingTransformer(logger: Expr[TestValue => Unit]) = new TreeMap {
@@ -40,35 +40,32 @@ object Tracer{
             && !IsDefDefSymbol.unapply(i.symbol).isDefined && !i.symbol.isClassConstructor
             // Don't trace identifiers which are synthesized by the compiler
             // as part of the language implementation
-            && !i.symbol.hasFlag(BRIDGE | VBRIDGE | ARTIFACT)
+            && !i.symbol.flags.is(Flags.Artifact)
             // Don't trace "magic" identifiers with '$'s in them
             && !name.toString.contains('$') =>
 
             wrapWithLoggedValue(tree, logger, tree.tpe.widen)
          
-          case i: Typed =>
-            i.tpe match {
-              case t: AnnotatedType
-                // Don't worry about multiple chained annotations for now...
-                if t.annotations.map(_.tpe) == Seq(typeOf[utest.asserts.Show]) =>
-                wrapWithLoggedValue(tree, logger, t.underlying.widen)
-              case _ => super.transformTerm(tree)
-            }
-
+          // Don't worry about multiple chained annotations for now...
+          case Typed(_, Type.AnnotatedType(underlying, annot)) if annot.tpe == typeOf[utest.asserts.Show] =>
+            wrapWithLoggedValue(tree, logger, underlying.widen)
+  
           // Don't recurse and trace the LHS of assignments
-          case i: Assign => super.transform(i.rhs)
+          case i: Assign => super.transformTerm(i.rhs)
 
           case _ => super.transformTerm(tree)
         }
       }
     }
 
-    val trees: Expr[Seq[AssertEntry[T]]] = '{$exprs.map(expr =>
-      AssertEntry(
-        expr.show,
-        logger => ${tracingTransformer('logger).transform(expr.tree)})
-    )}
+    exprs match { case ExprSeq(es) =>
+      val trees: Expr[Seq[AssertEntry[T]]] = es.map(expr =>
+        '{AssertEntry(
+          ${expr.show.toExpr},
+          logger => ${tracingTransformer('logger).transformTerm(expr.unseal).seal.cast[T]})}
+      ).toExprOfSeq
 
-    '{$func($trees)}
+      '{$func($trees)}
+    }
   }
 }
