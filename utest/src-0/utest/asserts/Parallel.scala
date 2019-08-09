@@ -1,6 +1,9 @@
 package utest
 package asserts
 
+import scala.quoted._
+import delegate scala.quoted._
+
 import scala.concurrent.duration._
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}

@@ -3,7 +3,7 @@ package asserts
 
 import scala.quoted._
 import delegate scala.quoted._
-import scala.tasty._
+import scala.reflect.ClassTag
 
 import utest.framework.StackMarker
 
@@ -21,24 +21,16 @@ object Asserts extends AssertsCommons {
   }
 
   def assertMatchProxy(t: Expr[Any], pf: Expr[PartialFunction[Any, Unit]]) given (ctx: QuoteContext): Expr[Unit] = {
-    val x = Tracer[Boolean]('{ (esx: Seq[AssertEntry[Boolean]]) => utest.asserts.Asserts.assertMatchImpl(esx: _*) }, exprs)
-    '{$x($pf)}
-  }
-
-  def interceptProxy[T](exprs: Expr[Unit]) given (ctx: QuoteContext, tpe: Type[T]): Expr[T] = {
-    val res = Tracer[Boolean]('{ (esx: Seq[AssertEntry[Boolean]]) => utest.asserts.Asserts.interceptImpl(esx: _*) }, exprs)
+    val res = Tracer.traceOne[Any, Unit]('{ (x: AssertEntry[Any]) => utest.asserts.Asserts.assertMatchImpl(x)($pf) }, t)
     '{$res: Unit}
   }
 
-  def interceptProxy[T: c.WeakTypeTag]
-                    (c: Context)
-                    (exprs: c.Expr[Unit])
-                    (t: c.Expr[ClassTag[T]]): c.Expr[T] = {
-    import c.universe._
-    val typeTree = implicitly[c.WeakTypeTag[T]]
-
-    val x = Tracer[Unit](c)(q"utest.asserts.Asserts.interceptImpl[$typeTree]", exprs)
-    c.Expr[T](q"$x($t)")
+  def interceptProxy[T](exprs: Expr[Unit]) given (ctx: QuoteContext, tpe: Type[T]): Expr[T] = {
+    import ctx.tasty._
+    val tag = Literal(Constant.ClassTag[T] given (tpe.unseal.tpe))
+    val res = Tracer.traceOne[Unit, T]('{ (x: AssertEntry[Unit]) =>
+      utest.asserts.Asserts.interceptImpl[$tpe](x)(${tag.seal.cast[ClassTag[T]]}) }, exprs)
+    '{$res: T}
   }
 }
 
