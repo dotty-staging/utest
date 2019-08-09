@@ -19,6 +19,27 @@ object Asserts extends AssertsCommons {
     val res = Tracer[Boolean]('{ (esx: Seq[AssertEntry[Boolean]]) => utest.asserts.Asserts.assertImpl(esx: _*) }, exprs)
     '{$res: Unit}
   }
+
+  def assertMatchProxy(t: Expr[Any], pf: Expr[PartialFunction[Any, Unit]]) given (ctx: QuoteContext): Expr[Unit] = {
+    val x = Tracer[Boolean]('{ (esx: Seq[AssertEntry[Boolean]]) => utest.asserts.Asserts.assertMatchImpl(esx: _*) }, exprs)
+    '{$x($pf)}
+  }
+
+  def interceptProxy[T](exprs: Expr[Unit]) given (ctx: QuoteContext, tpe: Type[T]): Expr[T] = {
+    val res = Tracer[Boolean]('{ (esx: Seq[AssertEntry[Boolean]]) => utest.asserts.Asserts.interceptImpl(esx: _*) }, exprs)
+    '{$res: Unit}
+  }
+
+  def interceptProxy[T: c.WeakTypeTag]
+                    (c: Context)
+                    (exprs: c.Expr[Unit])
+                    (t: c.Expr[ClassTag[T]]): c.Expr[T] = {
+    import c.universe._
+    val typeTree = implicitly[c.WeakTypeTag[T]]
+
+    val x = Tracer[Unit](c)(q"utest.asserts.Asserts.interceptImpl[$typeTree]", exprs)
+    c.Expr[T](q"$x($t)")
+  }
 }
 
 
@@ -59,26 +80,25 @@ trait Asserts{
     * Checks that one or more expressions all become true within a certain
     * period of time. Polls at a regular interval to check this.
     */
-  def eventually(exprs: Boolean*): Unit = ???
+  inline def eventually(exprs: Boolean*): Unit = ${Parallel.eventuallyProxy('exprs)}
   /**
     * Checks that one or more expressions all remain true within a certain
     * period of time. Polls at a regular interval to check this.
     */
-  def continually(exprs: Boolean*): Unit = ???
+  inline def continually(exprs: Boolean*): Unit = ${Parallel.continuallyProxy('exprs)}
 
   /**
     * Asserts that the given value matches the PartialFunction. Useful for using
     * pattern matching to validate the shape of a data structure.
     */
-  def assertMatch(t: Any)(pf: PartialFunction[Any, Unit]): Unit = ???
-
+  inline def assertMatch(t: Any)(pf: PartialFunction[Any, Unit]): Unit = ${assertMatchProxy('t, 'pf)}
 
   /**
     * Asserts that the given block raises the expected exception. The exception
     * is returned if raised, and an `AssertionError` is raised if the expected
     * exception does not appear.
     */
-  def intercept[T](exprs: Unit): T = ???
+  inline def intercept[T](exprs: Unit): T = ${interceptProxy[T]('exprs)}
 
   @tailrec final def retry[T](n: Int)(body: => T): T = {
     try body
