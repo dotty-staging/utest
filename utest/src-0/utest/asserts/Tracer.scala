@@ -29,13 +29,10 @@ object Tracer {
 
     exprs match {
       case ExprSeq(ess) =>
-        // val one: Seq[Expr[AssertEntry[T]]] = ess.map(makeAssertEntry)
-        // val x = the[scala.quoted.Type[AssertEntry[T]]]
-        // val two: Expr[Seq[AssertEntry[T]]] = toExprOfSeq(one, x, h.ctx)
         val trees: Expr[Seq[AssertEntry[T]]] = ess.map(makeAssertEntry).toExprOfSeq
         func(trees)
 
-      case _ => throw new RuntimeException(s"Only varargs are supported. Got: $exprs")
+      case _ => throw new RuntimeException(s"Only varargs are supported. Got: ${exprs.unseal}")
     }
   }
 }
