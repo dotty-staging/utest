@@ -23,9 +23,9 @@ object Asserts extends AssertsCommons {
 
   def interceptProxy[T](exprs: Expr[Unit]) given (ctx: QuoteContext, tpe: Type[T]): Expr[T] = {
     import ctx.tasty._
-    val tag = Literal(Constant.ClassTag[T] given (tpe.unseal.tpe))
+    val clazz = Literal(Constant.ClassTag[T] given (tpe.unseal.tpe))
     Tracer.traceOne[Unit, T]('{ (x: AssertEntry[Unit]) =>
-      utest.asserts.Asserts.interceptImpl[$tpe](x)(${tag.seal.cast[ClassTag[T]]}) }, exprs)
+      utest.asserts.Asserts.interceptImpl[$tpe](x)(ClassTag(${clazz.seal.cast[Class[T]]})) }, exprs)
   }
 }
 
@@ -85,7 +85,7 @@ trait Asserts{
     * is returned if raised, and an `AssertionError` is raised if the expected
     * exception does not appear.
     */
-  inline def intercept[T](exprs: Unit): T = ${interceptProxy[T]('exprs)}
+  inline def intercept[T](exprs: => Unit): T = ${interceptProxy[T]('exprs)}
 
   @tailrec final def retry[T](n: Int)(body: => T): T = {
     try body
