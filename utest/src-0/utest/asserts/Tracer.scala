@@ -17,7 +17,7 @@ object Tracer {
   def traceOneWithCode[I, O](func: Expr[AssertEntry[I] => O], expr: Expr[I], code: String)(given h: TracerHelper, tt: Type[I]): Expr[O] = {
     import h._, h.ctx.tasty._
     val tree = makeAssertEntry(expr, code)
-    func(tree)
+    Expr.betaReduce(func)(tree)
   }
 
   def apply[T](func: Expr[Seq[AssertEntry[T]] => Unit], exprs: Expr[Seq[T]])(given ctx: QuoteContext, tt: Type[T]): Expr[Unit] = {
@@ -28,20 +28,20 @@ object Tracer {
     exprs match {
       case ExprSeq(ess) =>
         val trees: Expr[Seq[AssertEntry[T]]] = Expr.ofSeq(ess.map(e => makeAssertEntry(e, codeOf(e))))
-        func(trees)
+        Expr.betaReduce(func)(trees)
 
       case _ => throw new RuntimeException(s"Only varargs are supported. Got: ${exprs.unseal}")
     }
   }
 
   def codeOf[T](expr: Expr[T])(given h: TracerHelper): String = {
-    import h.ctx.tasty._
+    import h.ctx.tasty.{ given, _ }
     expr.unseal.pos.sourceCode
   }
 }
 
 class TracerHelper(given val ctx: QuoteContext) {
-  import ctx.tasty._
+  import ctx.tasty.{ given, _ }
   import StringUtilHelpers._
 
   def tracingMap(logger: Expr[TestValue => Unit]) = new TreeMap {
@@ -54,7 +54,7 @@ class TracerHelper(given val ctx: QuoteContext) {
           && i.symbol.pos.sourceFile == i.pos.sourceFile
           // Don't trace methods, since you cannot just print them "standalone"
           // without providing arguments
-          && !IsDefDefSymbol.unapply(i.symbol).isDefined && !i.symbol.isClassConstructor
+          && !i.symbol.isDefDef && !i.symbol.isClassConstructor
           // Don't trace identifiers which are synthesized by the compiler
           // as part of the language implementation
           && !i.symbol.flags.is(Flags.Artifact)
@@ -66,7 +66,7 @@ class TracerHelper(given val ctx: QuoteContext) {
         // Don't worry about multiple chained annotations for now...
         case Typed(_, tpt) =>
           tpt.tpe match {
-            case Type.AnnotatedType(underlying, annot) if annot.tpe =:= typeOf[utest.asserts.Show] =>
+            case AnnotatedType(underlying, annot) if annot.tpe =:= typeOf[utest.asserts.Show] =>
               wrapWithLoggedValue(tree, logger, underlying.widen)
             case _ => super.transformTerm(tree)
           }

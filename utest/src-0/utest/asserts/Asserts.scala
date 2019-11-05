@@ -23,7 +23,7 @@ object Asserts extends AssertsCommons {
   }
 
   def interceptProxy[T](exprs: Expr[Unit])(given ctx: QuoteContext, tpe: Type[T]): Expr[T] = {
-    import ctx.tasty._
+    import ctx.tasty.{ given, _ }
     val clazz = Literal(Constant.ClassTag[T](given tpe.unseal.tpe))
     Tracer.traceOne[Unit, T]('{ (x: AssertEntry[Unit]) =>
       utest.asserts.Asserts.interceptImpl[$tpe](x)(ClassTag(${clazz.seal.cast[Class[T]]})) }, exprs)

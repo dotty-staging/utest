@@ -8,7 +8,7 @@ import utest.framework.{TestCallTree, Tree => UTree, TestPath }
 
 
 class TestBuilder(given QuoteContext, Toolbox) extends TestBuilderExtractors {
-  import qc.tasty.{ Tree => TasTree, _ }
+  import qc.tasty.{ Tree => TasTree, given, _ }
 
   def buildTestsTrees(tests: List[Apply], path: Seq[String]): (List[Expr[UTree[String]]], List[Expr[TestCallTree]]) =
     if tests.isEmpty then Nil -> Nil else tests.zipWithIndex.foldLeft((List.empty[Expr[UTree[String]]], List.empty[Expr[TestCallTree]])) {
