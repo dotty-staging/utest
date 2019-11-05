@@ -1,8 +1,7 @@
 package utest
 package asserts
 
-import scala.quoted._, scala.quoted.matching._
-import delegate scala.quoted._
+import scala.quoted.{ given, _ }, scala.quoted.matching._
 import scala.tasty._
 
 
@@ -12,36 +11,36 @@ import scala.tasty._
  */
 object Tracer {
 
-  def traceOne[I, O](func: Expr[AssertEntry[I] => O], expr: Expr[I]) given TracerHelper, Type[I]: Expr[O] =
+  def traceOne[I, O](func: Expr[AssertEntry[I] => O], expr: Expr[I])(given TracerHelper, Type[I]): Expr[O] =
     traceOneWithCode(func, expr, codeOf(expr))
 
-  def traceOneWithCode[I, O](func: Expr[AssertEntry[I] => O], expr: Expr[I], code: String) given (h: TracerHelper, tt: Type[I]): Expr[O] = {
+  def traceOneWithCode[I, O](func: Expr[AssertEntry[I] => O], expr: Expr[I], code: String)(given h: TracerHelper, tt: Type[I]): Expr[O] = {
     import h._, h.ctx.tasty._
     val tree = makeAssertEntry(expr, code)
     func(tree)
   }
 
-  def apply[T](func: Expr[Seq[AssertEntry[T]] => Unit], exprs: Expr[Seq[T]]) given (ctx: QuoteContext, tt: Type[T]): Expr[Unit] = {
+  def apply[T](func: Expr[Seq[AssertEntry[T]] => Unit], exprs: Expr[Seq[T]])(given ctx: QuoteContext, tt: Type[T]): Expr[Unit] = {
     val h = new TracerHelper
     import h._, h.ctx.tasty._
-    
+
 
     exprs match {
       case ExprSeq(ess) =>
-        val trees: Expr[Seq[AssertEntry[T]]] = ess.map(e => makeAssertEntry(e, codeOf(e))).toExprOfSeq
+        val trees: Expr[Seq[AssertEntry[T]]] = Expr.ofSeq(ess.map(e => makeAssertEntry(e, codeOf(e))))
         func(trees)
 
       case _ => throw new RuntimeException(s"Only varargs are supported. Got: ${exprs.unseal}")
     }
   }
 
-  def codeOf[T](expr: Expr[T]) given (h: TracerHelper): String = {
+  def codeOf[T](expr: Expr[T])(given h: TracerHelper): String = {
     import h.ctx.tasty._
     expr.unseal.pos.sourceCode
   }
 }
 
-class TracerHelper given (val ctx: QuoteContext) {
+class TracerHelper(given val ctx: QuoteContext) {
   import ctx.tasty._
   import StringUtilHelpers._
 
@@ -63,7 +62,7 @@ class TracerHelper given (val ctx: QuoteContext) {
           && !name.toString.contains('$') =>
 
           wrapWithLoggedValue(tree, logger, tree.tpe.widen)
-       
+
         // Don't worry about multiple chained annotations for now...
         case Typed(_, tpt) =>
           tpt.tpe match {
@@ -95,7 +94,7 @@ class TracerHelper given (val ctx: QuoteContext) {
     }.unseal
   }
 
-  def makeAssertEntry[T](expr: Expr[T], code: String) given scala.quoted.Type[T] = '{AssertEntry(
+  def makeAssertEntry[T](expr: Expr[T], code: String)(given scala.quoted.Type[T]) = '{AssertEntry(
     ${code.toExpr},
     logger => ${tracingMap('logger).transformTerm(expr.unseal).seal.cast[T]})}
 }
@@ -110,5 +109,5 @@ object StringUtilHelpers {
     str.dropWhile(_ == ' ').reverse.dropWhile(_ == ' ').reverse
 }
 
-delegate for TracerHelper given QuoteContext = new TracerHelper
-delegate for QuoteContext given (h: TracerHelper) = h.ctx
+given (given QuoteContext): TracerHelper = new TracerHelper
+given (given h: TracerHelper): QuoteContext = h.ctx
