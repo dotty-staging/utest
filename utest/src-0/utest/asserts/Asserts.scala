@@ -3,6 +3,7 @@ package asserts
 
 import scala.quoted.{ given, _ }
 import scala.reflect.ClassTag
+import scala.compiletime.testing._
 
 import utest.framework.StackMarker
 
@@ -28,6 +29,13 @@ object Asserts extends AssertsCommons {
     Tracer.traceOne[Unit, T]('{ (x: AssertEntry[Unit]) =>
       utest.asserts.Asserts.interceptImpl[$tpe](x)(ClassTag(${clazz.seal.cast[Class[T]]})) }, exprs)
   }
+
+  def compileErrorImpl(errors: List[Error]) =
+    val err = errors.head
+    val posStr = s"${err.lineContent}\n${" " * err.column}^"
+    err.kind match
+      case ErrorKind.Parser => CompileError.Parse(posStr, err.message)
+      case ErrorKind.Typer => CompileError.Type(posStr, err.message)
 }
 
 
@@ -56,7 +64,7 @@ trait Asserts{
     * [[utest.CompileError]] containing the message of the failure. If the expression
     * compile successfully, this macro itself will raise a compilation error.
     */
-  def compileError(expr: => String): CompileError = ???
+  inline def compileError(inline expr: => String): CompileError = compileErrorImpl(typeCheckErrors(expr))
 
   /**
     * Checks that one or more expressions are true; otherwises raises an
