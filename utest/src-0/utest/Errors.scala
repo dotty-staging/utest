@@ -60,14 +60,14 @@ trait CompileError{
     val stripped = errorPos.reverse.dropWhile("\n ".toSet.contains).reverse
     val normalizedPos = pos
 
-    if (errorPos != "") Predef.assert(
-      normalizedPos == stripped,
-      s"""Compile error positions do not match
+    if (errorPos != "")
+      if normalizedPos != stripped
+        println(s"""Compile error positions do not match
          |Expected Position
          |${stripped}
          |Actual Position
-         |${normalizedPos}""".stripMargin
-    )
+         |${normalizedPos}""".stripMargin)
+        Predef.assert(false, "Compile error positions do not match")
     for(msg <- msgs){
       Predef.assert(
         this.msg.contains(msg),
