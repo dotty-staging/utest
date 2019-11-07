@@ -222,11 +222,9 @@ object AssertsTests extends utest.TestSuite{
         // a variety of inputs
         val qq = "\"" * 3
         test - compileError("1 + abc").check(
-          """
-        test - compileError("1 + abc").check(
-                              ^
-          """,
-          "not found: value abc"
+          """|1 + abc
+             |    ^  """.stripMargin,
+          "Not found: abc"
         )
         test - compileError(""" 1 + abc""").check(
           s"""
