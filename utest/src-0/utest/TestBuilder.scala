@@ -124,5 +124,5 @@ trait TestBuilderExtractors(using val qc: QuoteContext) {
   }
 }
 
-given (using QuoteContext): TestBuilder = new TestBuilder
-given (using b: TestBuilder): QuoteContext = b.qc
+given (using QuoteContext) as TestBuilder = new TestBuilder
+given (using b: TestBuilder) as QuoteContext = b.qc
