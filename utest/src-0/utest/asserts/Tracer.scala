@@ -54,13 +54,13 @@ object Tracer {
             // Don't trace "magic" identifiers with '$'s in them
             && !name.toString.contains('$') =>
 
-            wrapWithLoggedValue(tree.asExpr, logger, tree.tpe.widen.seal)
+            wrapWithLoggedValue(tree.asExpr, logger, tree.tpe.widen.asQuotedType)
 
           // Don't worry about multiple chained annotations for now...
           case Typed(_, tpt) =>
             tpt.tpe match {
               case AnnotatedType(underlying, annot) if annot.tpe =:= typeOf[utest.asserts.Show] =>
-                wrapWithLoggedValue(tree.asExpr, logger, underlying.widen.seal)
+                wrapWithLoggedValue(tree.asExpr, logger, underlying.widen.asQuotedType)
               case _ => super.transformTerm(tree)
             }
 
