@@ -23,12 +23,12 @@ object Tracer {
         val trees: Expr[Seq[AssertEntry[T]]] = Expr.ofSeq(ess.map(e => makeAssertEntry(e, codeOf(e))))
         Expr.betaReduce('{ $func($trees)})
 
-      case _ => throw new RuntimeException(s"Only varargs are supported. Got: ${exprs.unseal}")
+      case _ => throw new RuntimeException(s"Only varargs are supported. Got: ${exprs.asTerm}")
     }
   }
 
   def codeOf[T](expr: Expr[T])(using QuoteContext): String =
-    expr.unseal.pos.sourceCode
+    expr.asTerm.pos.sourceCode
 
   private def tracingMap(logger: Expr[TestValue => Unit])(using QuoteContext) =
     import qctx.tasty._
@@ -54,13 +54,13 @@ object Tracer {
             // Don't trace "magic" identifiers with '$'s in them
             && !name.toString.contains('$') =>
 
-            wrapWithLoggedValue(tree.seal, logger, tree.tpe.widen.seal)
+            wrapWithLoggedValue(tree.asExpr, logger, tree.tpe.widen.seal)
 
           // Don't worry about multiple chained annotations for now...
           case Typed(_, tpt) =>
             tpt.tpe match {
               case AnnotatedType(underlying, annot) if annot.tpe =:= typeOf[utest.asserts.Show] =>
-                wrapWithLoggedValue(tree.seal, logger, underlying.widen.seal)
+                wrapWithLoggedValue(tree.asExpr, logger, underlying.widen.seal)
               case _ => super.transformTerm(tree)
             }
 
@@ -87,13 +87,13 @@ object Tracer {
             tmp
           ))
           tmp
-        }.unseal
+        }.asTerm
     }
   }
 
   private def makeAssertEntry[T](expr: Expr[T], code: String)(using QuoteContext, scala.quoted.Type[T]) =
     def entryBody(logger: Expr[TestValue => Unit]) =
-      tracingMap(logger).transformTerm(expr.unseal).seal.cast[T]
+      tracingMap(logger).transformTerm(expr.asTerm).asExprOf[T]
     '{AssertEntry(
       ${Expr(code)},
       logger => ${entryBody('logger)})}
