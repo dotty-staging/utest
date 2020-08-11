@@ -72,7 +72,7 @@ object Tracer {
       }
     }
 
-  private def wrapWithLoggedValue(expr: Expr[Any], logger: Expr[TestValue => Unit], tpe: Type[?])(using QuoteContext) = {
+  private def wrapWithLoggedValue(expr: Expr[Any], logger: Expr[TestValue => Unit], tpe: QuotedType)(using QuoteContext) = {
     val tpeString =
       try tpe.show
       catch
