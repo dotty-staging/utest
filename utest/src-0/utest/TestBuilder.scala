@@ -31,7 +31,7 @@ class TestBuilder(ctx: QuoteContext) extends TestBuilderExtractors(using ctx) {
       val (nestedNameTrees, nestedBodyTrees) = buildTestsTrees(nestedTests, path)
 
       object testPathMap extends TreeMap {
-        override def transformTerm(t: Term)(implicit ctx: Context): Term =
+        override def transformTerm(t: Term)(using Owner): Term =
           t.tpe.widen match {
             case _: MethodType | _: PolyType => super.transformTerm(t)
             case _ => t.seal match {

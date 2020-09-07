@@ -34,11 +34,11 @@ object Tracer {
     import qctx.tasty._
     new TreeMap {
       // Do not descend into definitions inside blocks since their arguments are unbound
-      override def transformStatement(tree: Statement)(using ctx: Context): Statement = tree match
+      override def transformStatement(tree: Statement)(using Owner): Statement = tree match
         case _: DefDef => tree
         case _ => super.transformStatement(tree)
 
-      override def transformTerm(tree: Term)(implicit ctx: Context): Term = {
+      override def transformTerm(tree: Term)(using Owner): Term = {
         tree match {
           case i @ Ident(name) if i.symbol.pos.exists
             && i.pos.exists
