@@ -23,12 +23,12 @@ object Tracer {
         val trees: Expr[Seq[AssertEntry[T]]] = Expr.ofSeq(ess.map(e => makeAssertEntry(e, codeOf(e))))
         Expr.betaReduce('{ $func($trees)})
 
-      case _ => throw new RuntimeException(s"Only varargs are supported. Got: ${exprs.unseal}")
+      case _ => throw new RuntimeException(s"Only varargs are supported. Got: ${exprs.asReflectTree}")
     }
   }
 
   def codeOf[T](expr: Expr[T])(using QuoteContext): String =
-    expr.unseal.pos.sourceCode
+    expr.asReflectTree.pos.sourceCode
 
   private def tracingMap(logger: Expr[TestValue => Unit])(using QuoteContext) =
     import qctx.reflect._
@@ -89,13 +89,13 @@ object Tracer {
             tmp
           ))
           tmp
-        }.unseal
+        }.asReflectTree
     }
   }
 
   private def makeAssertEntry[T](expr: Expr[T], code: String)(using QuoteContext, Type[T]) =
     def entryBody(logger: Expr[TestValue => Unit]) =
-      tracingMap(logger).transformTerm(expr.unseal).asExprOf[T]
+      tracingMap(logger).transformTerm(expr.asReflectTree).asExprOf[T]
     '{AssertEntry(
       ${Expr(code)},
       logger => ${entryBody('logger)})}
