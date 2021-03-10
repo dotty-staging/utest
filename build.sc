@@ -21,7 +21,7 @@ val scalaNativeVersions = for {
 trait UtestModule extends PublishModule {
   def artifactName = "utest"
 
-  def publishVersion = VcsVersion.vcsState().format()
+  def publishVersion = "cb-SNAPSHOT" // hardcoded version for the community build
 
   def pomSettings = PomSettings(
     description = artifactName(),
