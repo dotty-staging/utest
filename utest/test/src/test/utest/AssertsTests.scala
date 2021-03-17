@@ -226,8 +226,8 @@ object AssertsTests extends utest.TestSuite{
           e.getMessage
         }
       }
+      */
     }
-*/
     test("compileError"){
       test("success"){
         // Make sure that on successfully catching a compilation
