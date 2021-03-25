@@ -183,11 +183,6 @@ object AssertsTests extends utest.TestSuite{
         assertMatch(thing){case Seq(1, _, 3) =>}
         ()
       }
-/* Disabled failing tests. I was not able to see what goes wrong since the assertions
-   contain no additional info. The tests started failing after #11679, where
-   we now disallow unapplied functions including synthetic lambdas if the
-   expected type is Unit. I don't now enough about munit to be able to track
-   this down further.
 
       test("failure"){
         try {
@@ -201,7 +196,7 @@ object AssertsTests extends utest.TestSuite{
             TestValue("x", "Int", 1), TestValue("iAmCow", "Seq[String]", Seq("2.0")))
           )
           Predef.assert(e.getMessage.contains(
-            if (isDotty) "Seq(x, iAmCow, 3) match { case Seq(1, 2) => }"
+            if (isDotty) "Seq(x, iAmCow, 3) match { {case Seq(1, 2) =>} }"
             else "assertMatch(Seq(x, iAmCow, 3)){case Seq(1, 2) =>}"
           ))
 
@@ -220,13 +215,12 @@ object AssertsTests extends utest.TestSuite{
           Predef.assert(e.captured == Seq(TestValue("a", "Iterator[Nothing]", Iterator.empty)))
           Predef.assert(e.cause.isInstanceOf[NoSuchElementException])
           Predef.assert(e.getMessage.contains(
-            if (isDotty) "Seq(a.next(), 3, b) match { case Seq(1, 2) => }"
+            if (isDotty) "Seq(a.next(), 3, b) match { {case Seq(1, 2) =>} }"
             else "assertMatch(Seq(a.next(), 3, b)){case Seq(1, 2) =>}"
           ))
           e.getMessage
         }
       }
-      */
     }
     test("compileError"){
       test("success"){
