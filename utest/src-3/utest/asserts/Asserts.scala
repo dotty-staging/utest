@@ -19,7 +19,7 @@ trait AssertsCompanionVersionSpecific {
     Tracer[Boolean]('{ (esx: Seq[AssertEntry[Boolean]]) => utest.asserts.Asserts.assertImpl(esx: _*) }, exprs)
 
   def assertMatchProxy(t: Expr[Any], pf: Expr[PartialFunction[Any, Unit]])(using ctx: Quotes): Expr[Unit] = {
-    val code = s"${Tracer.codeOf(t)} match { ${Tracer.codeOf(pf)} }"
+    val code = s"${Tracer.codeOf(t)} match ${Tracer.codeOf(pf)}"
     Tracer.traceOneWithCode[Any, Unit]('{ (x: AssertEntry[Any]) => utest.asserts.Asserts.assertMatchImpl(x)($pf) }, t, code)
   }
 
