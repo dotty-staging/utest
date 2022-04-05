@@ -29,10 +29,10 @@ class TestCallTree(inner: => Either[Any, IndexedSeq[TestCallTree]]){
   def run(path: List[Int]): Any = {
     path match {
       case head :: tail =>
-        val Right(children) = StackMarker.dropOutside(inner)
+        val Right(children) = StackMarker.dropOutside(inner): @unchecked
         children(head).run(tail)
       case Nil =>
-        val Left(res) = StackMarker.dropOutside(inner)
+        val Left(res) = StackMarker.dropOutside(inner): @unchecked
         res
     }
   }
