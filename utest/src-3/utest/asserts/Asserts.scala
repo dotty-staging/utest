@@ -27,7 +27,7 @@ trait AssertsCompanionVersionSpecific {
     import quotes.reflect._
     val clazz = Literal(ClassOfConstant(TypeRepr.of[T]))
     Tracer.traceOne[Unit, T]('{ (x: AssertEntry[Unit]) =>
-      utest.asserts.Asserts.interceptImpl[T](x)(ClassTag(${clazz.asExprOf[Class[T]]})) }, exprs)
+      utest.asserts.Asserts.interceptImpl[T](x)(using ClassTag(${clazz.asExprOf[Class[T]]})) }, exprs)
   }
 
   def compileErrorImpl(errors: List[Error], snippet: String): CompileError =
@@ -48,7 +48,7 @@ trait AssertsVersionSpecific {
     * [[utest.CompileError]] containing the message of the failure. If the expression
     * compile successfully, this macro itself will raise a compilation error.
     */
-  inline def compileError(inline expr: String): CompileError = compileErrorImpl(typeCheckErrors(expr), expr)
+  transparent inline def compileError(inline expr: String): CompileError = compileErrorImpl(typeCheckErrors(expr), expr)
 
   /**
     * Checks that one or more expressions are true; otherwises raises an

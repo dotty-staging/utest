@@ -1,26 +1,47 @@
 import mill._, scalalib._, scalajslib._, scalanativelib._, publish._
+import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.1.4`
+import de.tobiasroeser.mill.vcs.version.VcsVersion
+import $ivy.`com.github.lolgab::mill-mima::0.0.10`
+import com.github.lolgab.mill.mima._
+import mill.scalalib.api.Util.isScala3
 
+val communityBuildDottyVersion = sys.props.get("dottyVersion").toList
 
-trait UtestModule extends PublishModule {
+val scalaVersions = "2.11.12" :: "2.12.16" :: "2.13.8" :: "3.1.3" :: communityBuildDottyVersion
+
+val scalaJSVersions = scalaVersions.map((_, "1.10.1"))
+val scalaNativeVersions = scalaVersions.map((_, "0.4.7"))
+
+val scalaReflectVersion = "1.1.2"
+
+trait MimaCheck extends Mima {
+  def mimaPreviousVersions = VcsVersion.vcsState().lastTag.toSeq
+}
+
+trait UtestModule extends PublishModule with MimaCheck {
   def artifactName = "utest"
 
-  def publishVersion = "0.7.5"
+  def crossScalaVersion: String
+
+  // Temporary until the next version of Mima gets released with
+  // https://github.com/lightbend/mima/issues/693 included in the release.
+  def mimaPreviousArtifacts =
+    if(isScala3(crossScalaVersion)) Agg.empty[Dep] else super.mimaPreviousArtifacts()
+
+  def publishVersion = VcsVersion.vcsState().format()
 
   def pomSettings = PomSettings(
     description = artifactName(),
     organization = "com.lihaoyi",
-    url = "https://github.com/lihaoyi/utest",
+    url = "https://github.com/com-lihaoyi/utest",
     licenses = Seq(License.MIT),
-    scm = SCM(
-      "git://github.com/lihaoyi/utest.git",
-      "scm:git://github.com/lihaoyi/utest.git"
-    ),
+    versionControl = VersionControl.github(owner = "com-lihaoyi", repo = "utest"),
     developers = Seq(
       Developer("lihaoyi", "Li Haoyi", "https://github.com/lihaoyi")
     )
   )
 }
-trait UtestMainModule extends CrossScalaModule {
+abstract class UtestMainModule(crossScalaVersion: String) extends CrossScalaModule {
   def millSourcePath = super.millSourcePath / offset
 
   def offset: os.RelPath = os.rel
@@ -33,12 +54,20 @@ trait UtestMainModule extends CrossScalaModule {
         )
       )
   )
+  override def docJar =
+    if (crossScalaVersion.startsWith("2")) super.docJar
+    else T {
+      val outDir = T.ctx().dest
+      val javadocDir = outDir / 'javadoc
+      os.makeDir.all(javadocDir)
+      mill.api.Result.Success(mill.modules.Jvm.createJar(Agg(javadocDir))(outDir))
+    }
 }
 
 
 trait UtestTestModule extends ScalaModule with TestModule {
   def crossScalaVersion: String
-  def testFrameworks = Seq("test.utest.CustomFramework")
+  def testFramework = "test.utest.CustomFramework"
   def offset: os.RelPath = os.rel
   def millSourcePath = super.millSourcePath / os.up
 
@@ -56,41 +85,30 @@ trait UtestTestModule extends ScalaModule with TestModule {
 }
 
 object utest extends Module {
-  val dottyVersion = Option(sys.props("dottyVersion"))
-  object jvm extends Cross[JvmUtestModule]((List("2.11.12", "2.12.8", "2.13.0", "3.0.0-M3") ++ dottyVersion): _*)
+  object jvm extends Cross[JvmUtestModule](scalaVersions: _*)
   class JvmUtestModule(val crossScalaVersion: String)
-    extends UtestMainModule with ScalaModule with UtestModule {
+    extends UtestMainModule(crossScalaVersion) with ScalaModule with UtestModule {
     def ivyDeps = Agg(
       ivy"org.scala-sbt:test-interface::1.0"
     ) ++ (if (crossScalaVersion.startsWith("2")) Agg(
-      ivy"org.portable-scala::portable-scala-reflect::0.1.1",
+      ivy"org.portable-scala::portable-scala-reflect::$scalaReflectVersion",
       ivy"org.scala-lang:scala-reflect:$crossScalaVersion"
     ) else Agg())
     object test extends Tests with UtestTestModule{
       val crossScalaVersion = JvmUtestModule.this.crossScalaVersion
     }
-
-    override def docJar =
-      if (crossScalaVersion.startsWith("2")) super.docJar
-      else T {
-        val outDir = T.ctx().dest
-        val javadocDir = outDir / 'javadoc
-        os.makeDir.all(javadocDir)
-        mill.api.Result.Success(mill.modules.Jvm.createJar(Agg(javadocDir))(outDir))
-      }
   }
 
-  object js extends Cross[JsUtestModule](
-    ("2.12.10", "0.6.31"), ("2.13.1", "0.6.31"), ("2.12.10", "1.0.0"), ("2.13.1", "1.0.0")
-  )
+  object js extends Cross[JsUtestModule](scalaJSVersions: _*)
   class JsUtestModule(val crossScalaVersion: String, crossJSVersion: String)
-    extends UtestMainModule with ScalaJSModule with UtestModule {
+    extends UtestMainModule(crossScalaVersion) with ScalaJSModule with UtestModule {
     def offset = os.up
     def ivyDeps = Agg(
-      ivy"org.scala-js::scalajs-test-interface:$crossJSVersion",
-      ivy"org.portable-scala::portable-scala-reflect::0.1.1",
+      ivy"org.scala-js::scalajs-test-interface:$crossJSVersion".withDottyCompat(crossScalaVersion),
+      ivy"org.portable-scala::portable-scala-reflect::$scalaReflectVersion".withDottyCompat(crossScalaVersion)
+    ) ++ (if(crossScalaVersion.startsWith("2")) Agg(
       ivy"org.scala-lang:scala-reflect:$crossScalaVersion"
-    )
+    ) else Agg())
     def scalaJSVersion = crossJSVersion
     object test extends Tests with UtestTestModule{
       def offset = os.up
@@ -98,13 +116,12 @@ object utest extends Module {
     }
   }
 
-  object native extends Cross[NativeUtestModule](("2.11.12", "0.3.9"), ("2.11.12", "0.4.0-M2"))
+  object native extends Cross[NativeUtestModule](scalaNativeVersions: _*)
   class NativeUtestModule(val crossScalaVersion: String, crossScalaNativeVersion: String)
-    extends UtestMainModule with ScalaNativeModule with UtestModule {
+    extends UtestMainModule(crossScalaVersion) with ScalaNativeModule with UtestModule {
     def offset = os.up
     def ivyDeps = super.ivyDeps() ++ Agg(
-      ivy"org.scala-native::test-interface::$crossScalaNativeVersion",
-      ivy"org.scala-lang:scala-reflect:$crossScalaVersion",
+      ivy"org.scala-native::test-interface::$crossScalaNativeVersion"
     )
 
     def scalaNativeVersion = crossScalaNativeVersion
